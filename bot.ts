@@ -18,9 +18,9 @@ const client = new Spot(API_KEY, SECRET_KEY);
 
 // Настройки торговой стратегии
 const SYMBOL = "PLBUSDT";
-const QUANTITY = 2; // Минимальный объем для тестов
+const QUANTITY = 6; // Минимальный объем для тестов
 const PRICE_STEP = 0.0001; // Шаг цены для монеты PLBUSDT
-const STOP_LOSS_PCT = 0.05; // Защитный стоп-лосс в процентах
+const STOP_LOSS_PCT = 0.15; // Защитный стоп-лосс в процентах
 
 interface ChannelData {
   lowerBound: number;
@@ -29,11 +29,26 @@ interface ChannelData {
   targetSellPrice: number;
 }
 
+// Получение реального свободного баланса монеты на спотовом кошельке
+async function getAssetBalance(assetName: string): Promise<number> {
+    try {
+        const accountInfo = await client.accountInfo();
+        if (!accountInfo || !accountInfo.balances) return 0;
+
+        // Ищем строку с нашей монетой (например, "PLB")
+        const asset = accountInfo.balances.find((b: any) => b.asset === assetName);
+        return asset ? parseFloat(asset.free) : 0;
+    } catch (e: any) {
+        console.error(`Ошибка при получении баланса кошелька ${assetName}:`, e.message || e);
+        return 0;
+    }
+}
+
 // Расчет параметров канала
 async function getChannelBounds(): Promise<ChannelData | null> {
   try {
     const endTime = Date.now();
-    const startTime = endTime - 60000; // 15 секунд назад
+    const startTime = endTime - 30000; // 15 секунд назад
 
     // ИСПРАВЛЕНО: client.bookTicker принимает СТРОКУ, а client.trades принимает (строку, объект)
     const [tradesData, tickerData] = await Promise.all([
@@ -132,176 +147,188 @@ async function placeOrder(
 
 // Бесконечный торговый цикл
 async function tradeLoop() {
-  let inPosition = false;
-  let buyOrderId = null;
-  let sellOrderId = null; // Добавляем ID ордера на продажу
-  let entryPrice = 0;
-  let buyOrderTimestamp = 0; // Время выставления ордера на покупку
+    let inPosition = false;
+    let buyOrderId = null;
+    let sellOrderId = null;
+    let entryPrice = 0;
+    let buyOrderTimestamp = 0;
 
-  console.log("=== Бот на базе MEXC SDK успешно перезапущен ===");
+    const ASSET_NAME = SYMBOL.replace('USDT', ''); 
 
-  while (true) {
-    const channel = await getChannelBounds();
-    if (!channel || isNaN(channel.targetBuyPrice)) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      continue;
-    }
+    console.log('=== Бот на базе MEXC SDK успешно перезапущен ===');
 
-    // 1. Попытка входа в сделку (если мы не в позиции и нет активных ордеров)
-    if (!inPosition && !buyOrderId && !sellOrderId) {
-      const targetBuyPrice = channel.targetBuyPrice;
-      // Расчет ПРЕДПОЛАГАЕМОГО стоп-лосса, если мы зайдем по targetBuyPrice
-      const expectedStopPrice = targetBuyPrice * (1 - STOP_LOSS_PCT / 100);
-
-      console.log(
-        `[Канал] 15с Мин: ${channel.lowerBound} | План покупки: ${targetBuyPrice} | План продажи: ${channel.targetSellPrice.toFixed(4)} | План Стопа: ${expectedStopPrice.toFixed(4)}`,
-      );
-
-      const order = await placeOrder("BUY", targetBuyPrice, QUANTITY);
-      if (order && order.orderId) {
-        buyOrderId = order.orderId;
-        entryPrice = targetBuyPrice;
-        buyOrderTimestamp = Date.now(); // Запоминаем точное время (миллисекунды)
-        console.log(
-          `Лимитный ордер на покупку успешно выставлен. ID: ${buyOrderId}`,
-        );
-      }
-    }
-    // БЛОК ЗАЩИТЫ: Проверка зависшего ордера на покупку
-    if (buyOrderId && !inPosition) {
-      const orderAgeSeconds = (Date.now() - buyOrderTimestamp) / 1000;
-      const priceDeviation = channel.targetBuyPrice - entryPrice; // Насколько новая расчетная цена выше нашей лимитки
-
-      // Условия отмены: ордеру больше 60 секунд ИЛИ цена ушла вверх больше чем на 2 шага
-      if (orderAgeSeconds >= 60 || priceDeviation > PRICE_STEP * 10) {
-        const reason =
-          orderAgeSeconds >= 60
-            ? `Таймаут 60 сек`
-            : `Цена ушла вверх на ${priceDeviation.toFixed(4)}`;
-        console.log(
-          `⏳ Сброс зависшего ордера на покупку: ${reason}. Отмена ордера ${buyOrderId}...`,
-        );
-
-        try {
-          await client.cancelOrder(SYMBOL, { orderId: buyOrderId });
-          console.log(`Ордер ${buyOrderId} успешно отменен.`);
-        } catch (e: any) {
-          console.error(
-            "Не удалось отменить ордер (возможно, он уже исполнился в этот миг):",
-            e.message || e,
-          );
+    while (true) {
+        const channel = await getChannelBounds();
+        if (!channel || isNaN(channel.targetBuyPrice)) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
         }
 
-        // Сбрасываем ID ордера, чтобы на следующем круге рассчитать новые актуальные цены
-        buyOrderId = null;
-        continue; // Переходим к следующей итерации цикла
-      }
-    }
-    // 2. Ожидание исполнения ордера на покупку
-    if (buyOrderId && !inPosition) {
-      try {
-        const orderStatus = await client.queryOrder(SYMBOL, {
-          orderId: buyOrderId,
-        });
+        const stepStr = PRICE_STEP.toString();
+        const decimals = stepStr.includes('.') ? stepStr.split('.')[1]?.length : 4;
 
-        if (orderStatus && orderStatus.status === "FILLED") {
-          console.log(
-            "🎉 Покупка ИСПОЛНЕНА. Автоматически выставляем Тейк-Профит.",
-          );
-          inPosition = true;
-          buyOrderId = null;
-
-          const takeProfitPrice = channel.targetSellPrice;
-          const sellOrder = await placeOrder("SELL", takeProfitPrice, QUANTITY);
-
-          if (sellOrder && sellOrder.orderId) {
-            sellOrderId = sellOrder.orderId; // Запоминаем ID Тейк-Профита
+        // 1. Попытка входа в сделку
+        if (!inPosition && !buyOrderId && !sellOrderId) {
+            const targetBuyPrice = channel.targetBuyPrice;
+            const expectedStopPrice = targetBuyPrice * (1 - STOP_LOSS_PCT / 100);
+            
             console.log(
-              `Лимитный ордер на продажу (TP) выставлен. ID: ${sellOrderId}`,
+                `[Канал] Мин 15с: ${channel.lowerBound.toFixed(decimals)} | ` +
+                `Вход: ${targetBuyPrice.toFixed(decimals)} | ` +
+                `Выход (TP): ${channel.targetSellPrice.toFixed(decimals)} | ` +
+                `План Стопа: ${expectedStopPrice.toFixed(decimals)}`
             );
-          }
-        } else if (
-          orderStatus &&
-          (orderStatus.status === "CANCELED" ||
-            orderStatus.status === "REJECTED")
-        ) {
-          console.log("Ордер на покупку был отменен или отклонен биржей.");
-          buyOrderId = null;
+            
+            const order = await placeOrder('BUY', targetBuyPrice, QUANTITY);
+            if (order && order.orderId) {
+                buyOrderId = order.orderId;
+                entryPrice = targetBuyPrice;
+                buyOrderTimestamp = Date.now();
+                console.log(`Лимитный ордер на покупку успешно выставлен. ID: ${buyOrderId}`);
+            }
+        } 
+        
+        // Сброс зависшего ордера по времени или расстоянию (ДОБАВЛЕН ФИЛЬТР НА 1 USDT)
+        if (buyOrderId && !inPosition) {
+            const orderAgeSeconds = (Date.now() - buyOrderTimestamp) / 1000;
+            const priceDeviation = channel.targetBuyPrice - entryPrice;
+
+            if (orderAgeSeconds >= 60 || priceDeviation > (PRICE_STEP * 2)) {
+                console.log(`⏳ Сброс зависшего ордера на покупку...`);
+                try {
+                    await client.cancelOrder(SYMBOL, { orderId: buyOrderId });
+                    console.log(`Ордер ${buyOrderId} отменен.`);
+
+                    const currentWalletBalance = await getAssetBalance(ASSET_NAME);
+                    
+                    if (currentWalletBalance > 0) {
+                        const takeProfitPrice = channel.targetSellPrice;
+                        // Вычисляем примерную стоимость остатка на балансе в USDT
+                        const estimatedValueUSDT = currentWalletBalance * takeProfitPrice;
+
+                        // ИСПРАВЛЕНИЕ: Если стоимость меньше 1.05 USDT, игнорируем её
+                        if (estimatedValueUSDT < 1.05) {
+                            console.log(`⚠️ На балансе пыль: ${currentWalletBalance} ${ASSET_NAME} (~${estimatedValueUSDT.toFixed(2)} USDT). Это меньше лимита биржи 1 USDT. Игнорируем и идем дальше.`);
+                            buyOrderId = null;
+                            entryPrice = 0;
+                            continue;
+                        }
+
+                        console.log(`⚠️ На балансе обнаружен крупный остаток ${currentWalletBalance} ${ASSET_NAME}. Выставляем Тейк-Профит.`);
+                        inPosition = true;
+                        buyOrderId = null;
+
+                        const sellOrder = await placeOrder('SELL', takeProfitPrice, currentWalletBalance);
+                        if (sellOrder && sellOrder.orderId) sellOrderId = sellOrder.orderId;
+                        continue;
+                    }
+                } catch (e: any) {
+                    console.error('Не удалось отменить ордер:', e.message || e);
+                }
+
+                buyOrderId = null; 
+                continue;
+            }
         }
-      } catch (e: any) {
-        console.error(
-          "Ошибка проверки статуса ордера на покупку:",
-          e.message || e,
-        );
-      }
-    }
+        
+        // 2. Ожидание полного исполнения ордера на покупку (ДОБАВЛЕН ФИЛЬТР НА 1 USDT)
+        if (buyOrderId && !inPosition) {
+            try {
+                const orderStatus = await client.queryOrder(SYMBOL, { orderId: buyOrderId });
+                
+                if (orderStatus && orderStatus.status === 'FILLED') {
+                    console.log(`🎉 Покупка ИСПОЛНЕНА.`);
+                    inPosition = true;
+                    buyOrderId = null;
 
-    // 3. Ожидание исполнения Тейк-Профита
-    if (sellOrderId && inPosition) {
-      try {
-        const orderStatus = await client.queryOrder(SYMBOL, {
-          orderId: sellOrderId,
-        });
+                    const walletBalance = await getAssetBalance(ASSET_NAME);
+                    const takeProfitPrice = channel.targetSellPrice;
+                    const estimatedValueUSDT = walletBalance * takeProfitPrice;
 
-        if (orderStatus && orderStatus.status === "FILLED") {
-          console.log(
-            "💰 Тейк-Профит ИСПОЛНЕН! Позиция полностью закрыта в плюс. Сбрасываем флаги для нового цикла.",
-          );
-          // ИСПРАВЛЕНИЕ: Полностью обнуляем состояние для следующего круга
-          inPosition = false;
-          sellOrderId = null;
-          entryPrice = 0;
-        } else if (
-          orderStatus &&
-          (orderStatus.status === "CANCELED" ||
-            orderStatus.status === "REJECTED")
-        ) {
-          console.log(
-            "🚨 Ордер Тейк-Профит был отменен вручную или отклонен биржей!",
-          );
-          inPosition = false;
-          sellOrderId = null;
-          entryPrice = 0;
-        }
-      } catch (e: any) {
-        console.error(
-          "Ошибка проверки статуса ордера на продажу:",
-          e.message || e,
-        );
-      }
-    }
-
-    // 4. Контроль локального стоп-лосса (работает параллельно, пока висит Тейк-Профит)
-    if (inPosition && sellOrderId) {
-      const stopLossPrice = entryPrice * (1 - STOP_LOSS_PCT / 100);
-      if (channel.midPrice <= stopLossPrice) {
-        console.log(
-          `🚨 СТОП-ЛОСС! Цена упала до ${channel.midPrice}. Сброс позиции по рынку.`,
-        );
-
-        try {
-          // Отменяем активный лимитный Тейк-Профит перед выходом по стопу
-          await client.cancelOrder(SYMBOL, { orderId: sellOrderId });
-          console.log(`Предыдущий Тейк-Профит ${sellOrderId} успешно отменен.`);
-        } catch (e) {
-          console.error(
-            "Не удалось отменить Тейк-Профит при стопе (возможно уже исполнился):",
-            e,
-          );
+                    // ИСПРАВЛЕНИЕ: Защитная проверка стоимости при штатном исполнении
+                    if (walletBalance > 0 && estimatedValueUSDT >= 1.05) {
+                        const sellOrder = await placeOrder('SELL', takeProfitPrice, walletBalance);
+                        if (sellOrder && sellOrder.orderId) {
+                            sellOrderId = sellOrder.orderId;
+                            console.log(`Лимитный ордер на продажу (TP) выставлен на весь баланс. ID: ${sellOrderId}`);
+                        }
+                    } else {
+                        console.log(`⚠️ Объем на балансе (${walletBalance} ${ASSET_NAME} ~${estimatedValueUSDT.toFixed(2)} USDT) слишком мал для создания Тейк-Профита. Пропускаем позицию.`);
+                        inPosition = false;
+                        entryPrice = 0;
+                    }
+                } else if (orderStatus && (orderStatus.status === 'CANCELED' || orderStatus.status === 'REJECTED')) {
+                    console.log('Ордер на покупку был отменен или отклонен биржей.');
+                    buyOrderId = null;
+                }
+            } catch (e: any) {
+                console.error('Ошибка проверки статуса ордера на покупку:', e.message || e);
+            }
         }
 
-        // Закрываем позицию быстрой лимиткой по цене спроса
-        await placeOrder("SELL", channel.lowerBound, QUANTITY);
+        // 3. Ожидание исполнения Тейк-Профита
+        if (sellOrderId && inPosition) {
+            try {
+                const orderStatus = await client.queryOrder(SYMBOL, { orderId: sellOrderId });
+                
+                if (orderStatus && orderStatus.status === 'FILLED') {
+                    console.log('💰 Тейк-Профит ИСПОЛНЕН! Позиция полностью закрыта.');
+                    inPosition = false;
+                    sellOrderId = null;
+                    entryPrice = 0;
+                } else if (orderStatus && (orderStatus.status === 'CANCELED' || orderStatus.status === 'REJECTED')) {
+                    console.log('🚨 Тейк-Профит был отменен или отклонен!');
+                    inPosition = false;
+                    sellOrderId = null;
+                    entryPrice = 0;
+                }
+            } catch (e: any) {
+                console.error('Ошибка проверки статуса ордера на продажу:', e.message || e);
+            }
+        }
 
-        // Сбрасываем флаги
-        inPosition = false;
-        sellOrderId = null;
-        entryPrice = 0;
-      }
+        // 4. Контроль РЕАЛЬНОГО стоп-лосса по моментальному стакану
+        if (inPosition && sellOrderId) {
+            const stopLossPrice = entryPrice * (1 - STOP_LOSS_PCT / 100);
+            
+            try {
+                const instantTicker = await client.bookTicker(SYMBOL);
+                const currentInstantPrice = parseFloat(instantTicker.bidPrice);
+
+                if (currentInstantPrice <= stopLossPrice) {
+                    console.log(`🚨 СТОП-ЛОСС! Цена (${currentInstantPrice}) пробила уровень защиты (${stopLossPrice}).`);
+                    
+                    try {
+                        await client.cancelOrder(SYMBOL, { orderId: sellOrderId });
+                        console.log(`Тейк-Профит ${sellOrderId} отменен.`);
+                    } catch (e) {
+                        console.error('Не удалось отменить Тейк-Профит при стопе:', e);
+                    }
+
+                    const finalWalletBalance = await getAssetBalance(ASSET_NAME);
+                    const estimatedValueUSDT = finalWalletBalance * currentInstantPrice;
+
+                    // На стоп-лоссе тоже проверяем лимит, чтобы бот не падал в ошибку
+                    if (finalWalletBalance > 0 && estimatedValueUSDT >= 1.05) {
+                        console.log(`Экстренно продаем весь кошелек: ${finalWalletBalance} ${ASSET_NAME}`);
+                        await placeOrder('SELL', currentInstantPrice - PRICE_STEP, finalWalletBalance);
+                    } else {
+                        console.log(`Остаток кошелька слишком мелкий для стоп-лосса (~${estimatedValueUSDT.toFixed(2)} USDT). Оставляем как пыль.`);
+                    }
+                    
+                    inPosition = false;
+                    sellOrderId = null;
+                    entryPrice = 0;
+                }
+            } catch (tickerError: any) {
+                console.error('Ошибка моментального контроля стопа:', tickerError.message || tickerError);
+            }
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 1500));
     }
-
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-  }
 }
+
+
 
 tradeLoop();
