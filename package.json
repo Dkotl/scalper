@@ -3,8 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "bot": "tsx bot.ts "
   },
   "repository": {
     "type": "git",
@@ -13,17 +15,22 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/Ddkotl/scalper/issues"
   },
   "homepage": "https://github.com/Ddkotl/scalper#readme",
   "dependencies": {
-    "ccxt": "^4.5.56"
+    "axios": "^1.17.0",
+    "ccxt": "^4.5.56",
+    "cli-table3": "^0.6.5",
+    "date-fns": "^4.4.0",
+    "dotenv": "^17.4.2",
+    "mexc-api-sdk": "^1.0.3"
   },
   "devDependencies": {
     "@types/node": "^25.9.2",
     "ts-node": "^10.9.2",
+    "tsx": "^4.22.4",
     "typescript": "^6.0.3"
   }
 }
