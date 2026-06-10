@@ -354,7 +354,7 @@ async function tradeLoop() {
               `Экстренно продаем весь кошелек: ${finalWalletBalance} ${ASSET_NAME}`,
             );
             await client.newOrder(SYMBOL, "SELL", "MARKET", {
-      quantity: balance.toString(),
+      quantity: finalWalletBalance.toString(),
     });
           } else {
             console.log(
