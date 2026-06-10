@@ -365,8 +365,8 @@ async function tradeLoop() {
           inPosition = false;
           sellOrderId = null;
           entryPrice = 0;
-          console.log("⏳ Пауза 5 минут после стопа...");
-  await new Promise(resolve => setTimeout(resolve, 5 * 60 * 1000));
+          console.log("⏳ Пауза 10 минут после стопа...");
+  await new Promise(resolve => setTimeout(resolve, 10 * 60 * 1000));
         }
       } catch (tickerError: any) {
         console.error(
