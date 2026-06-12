@@ -38,3 +38,20 @@ export async function cancelOrder(orderId: number) {
     console.error(`Не удалось отменить ордер ${orderId}:`, e.message || e);
   }
 }
+
+export async function getOpenOrders(symbol: string) {
+  try {
+    const openOrders = await client.openOrders(SYMBOL);
+    // Ищем ордера на бирже по факту их наличия
+    const currentBuyOrder = openOrders.find(
+      (o: { side: string }) => o.side === "BUY",
+    );
+    const currentSellOrder = openOrders.find(
+      (o: { side: string }) => o.side === "SELL",
+    );
+    return { currentBuyOrder, currentSellOrder };
+  } catch (e: any) {
+    console.error(`Ошибка получения открытых ордеров:`, e.message || e);
+    return { currentBuyOrder: null, currentSellOrder: null };
+  }
+}

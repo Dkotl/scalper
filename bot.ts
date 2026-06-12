@@ -1,13 +1,25 @@
 import { getChannelBounds } from "./src/strategy";
 import { getAssetBalance } from "./src/wallet";
-import { placeLimitOrder, placeMarketSell, cancelOrder } from "./src/orders";
-import { SYMBOL, QUANTITY, STOP_LOSS_PCT } from "./src/config";
+import {
+  placeLimitOrder,
+  placeMarketSell,
+  cancelOrder,
+  getOpenOrders,
+} from "./src/orders";
+import {
+  SYMBOL,
+  QUANTITY,
+  STOP_LOSS_PCT,
+  MIN_NOTIONAL,
+  TRADE_INTERVAL_MS,
+  INTERVAL_AFTER_STOPLOSS_MS,
+  ASSET_NAME,
+  ORDER_TIMEOUT_MS,
+} from "./src/config";
 import { client } from "./src/client";
+import { sleep } from "./src/utils";
 
 export async function tradeLoop() {
-  const ASSET_NAME = SYMBOL.replace("USDT", "");
-  const MIN_NOTIONAL = 1.1; // Минимальная стоимость ордера в USDT для торговли (с запасом)
-
   console.log("🚀 Робот запущен в Stateless-режиме.");
 
   while (true) {
@@ -16,33 +28,25 @@ export async function tradeLoop() {
       // 1. СБОР СВЕЖИХ ДАННЫХ С СЕРВЕРА (Каждый тик заново)
       // ==========================================
       const channel = await getChannelBounds();
-      const openOrders = await client.openOrders(SYMBOL); // Получаем все активные ордера по паре
+      const { currentBuyOrder, currentSellOrder } = await getOpenOrders(SYMBOL); // Получаем все активные ордера по паре
       const { coinBalance, usdtBalance } = await getAssetBalance(ASSET_NAME);
 
-      if (!channel || !openOrders) {
+      if (!channel || coinBalance === null || usdtBalance === null) {
         console.log(
           "⚠️ Не удалось собрать все данные с биржи. Пропускаем тик...",
         );
-        await new Promise((r) => setTimeout(r, 5000));
+        await sleep(TRADE_INTERVAL_MS);
         continue;
       }
-
       const currentPrice = channel.bestBid;
       const coinValueInUsdt = coinBalance * currentPrice;
 
-      // Ищем ордера на бирже по факту их наличия
-      const currentBuyOrder = openOrders.find(
-        (o: { side: string }) => o.side === "BUY",
-      );
-      const currentSellOrder = openOrders.find(
-        (o: { side: string }) => o.side === "SELL",
-      );
       // ==========================================
       // 2. АНАЛИЗ СОСТОЯНИЯ И ПРИНЯТИЕ РЕШЕНИЙ
       // ==========================================
       if (currentBuyOrder) {
-        const buyAgeMinutes = (Date.now() - currentBuyOrder.time) / 1000 / 60;
-        if (buyAgeMinutes >= 3) {
+        const buyAgeMinutes = Date.now() - currentBuyOrder.time;
+        if (buyAgeMinutes >= ORDER_TIMEOUT_MS) {
           console.log(
             "⏰ Ордер BUY висит больше 3 минут без полного налива. Отменяем.",
           );
@@ -51,8 +55,8 @@ export async function tradeLoop() {
         }
       }
       if (currentSellOrder) {
-        const tpAgeMinutes = (Date.now() - currentSellOrder.time) / 1000 / 60;
-        if (tpAgeMinutes >= 3) {
+        const tpAgeMinutes = Date.now() - currentSellOrder.time;
+        if (tpAgeMinutes >= ORDER_TIMEOUT_MS) {
           console.log(
             "⏰ ТР висит больше 3 минут. Отменяем для перестановки по новому каналу.",
           );
@@ -68,8 +72,8 @@ export async function tradeLoop() {
           );
           if (currentSellOrder) await cancelOrder(currentSellOrder.orderId);
           await placeMarketSell(coinBalance);
-          console.log("😴 Пауза 10 минут после стоп-лосса.");
-          await new Promise((r) => setTimeout(r, 10 * 60 * 1000));
+          console.log("😴 Пауза  после стоп-лосса.");
+          await sleep(INTERVAL_AFTER_STOPLOSS_MS);
           continue;
         }
       }
@@ -119,8 +123,7 @@ export async function tradeLoop() {
       console.error("💥 Критическая ошибка в цикле тика:", error);
     }
 
-    // Интервал между тиками
-    await new Promise((r) => setTimeout(r, 5000));
+    await sleep(TRADE_INTERVAL_MS);
   }
 }
 
