@@ -12,13 +12,45 @@ if (!API_KEY || !SECRET_KEY) {
   process.exit(1);
 }
 
-export const SYMBOL = "PLBUSDT"; // Торговая пара (можно подстроить под конкретную пару)
-export const QUANTITY = 6; // Количество монет для покупки (можно подстроить под конкретную пару)
-export const PRICE_STEP = 0.0001; // Шаг цены для расчета целевых уровней (можно подстроить под конкретную пару)
-export const CHANNEL_TIME = 30 * 1000; // Временной интервал для расчета канала (30 секунд)
-export const STOP_LOSS_PCT = 0.3; // Процент для стоп-лосса от цены покупки (0.3% = 0.003)
-export const MIN_NOTIONAL = 1.1; // Минимальная стоимость ордера в USDT для торговли (с запасом)
-export const TRADE_INTERVAL_MS = 5000; // Интервал между итерациями торгового цикла (5 секунд)
-export const INTERVAL_AFTER_STOPLOSS_MS = 10 * 60 * 1000; // Интервал паузы после срабатывания стоп-лосса (10 минут)
-export const ORDER_TIMEOUT_MS = 3 * 60 * 1000; // Время в миллисекундах, после которого ордер считается "зависшим" (3 минуты)
-export const ASSET_NAME = SYMBOL.replace("USDT", "");
+// Интерфейс для индивидуальных настроек каждой монеты
+export interface CoinConfig {
+  SYMBOL: string;
+  QUANTITY: number;
+  PRICE_STEP: number;
+  STOP_LOSS_PCT: number;
+  MIN_NOTIONAL: number;
+  ASSET_NAME: string;
+  CHANNEL_TIME: number;
+  TRADE_INTERVAL_MS: number;
+  INTERVAL_AFTER_STOPLOSS_MS: number;
+  ORDER_TIMEOUT_MS: number;
+}
+
+export const COINS_CONFIG: CoinConfig[] = [
+  {
+    SYMBOL: "PLBUSDT",
+    QUANTITY: 6,
+    PRICE_STEP: 0.0001,
+    STOP_LOSS_PCT: 0.3,
+    MIN_NOTIONAL: 1.1,
+    ASSET_NAME: "PLB",
+    CHANNEL_TIME: 30 * 1000,
+    TRADE_INTERVAL_MS: 5000,
+    INTERVAL_AFTER_STOPLOSS_MS: 10 * 60 * 1000,
+    ORDER_TIMEOUT_MS: 3 * 60 * 1000,
+  },
+  // {
+  //   SYMBOL: "BTCUSDT",
+  //   QUANTITY: 0.0001,
+  //   PRICE_STEP: 0.01,
+  //   STOP_LOSS_PCT: 0.5,
+  //   MIN_NOTIONAL: 5.0,
+  //   ASSET_NAME: "BTC",
+  //   CHANNEL_TIME: 30 * 1000,
+  //   TRADE_INTERVAL_MS: 5000,
+  //   INTERVAL_AFTER_STOPLOSS_MS: 10 * 60 * 1000,
+  //   ORDER_TIMEOUT_MS: 3 * 60 * 1000,
+  // },
+];
+
+//corn nibi

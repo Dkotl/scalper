@@ -6,35 +6,38 @@ import {
   cancelOrder,
   getOpenOrders,
 } from "./src/orders";
-import {
-  SYMBOL,
-  QUANTITY,
-  STOP_LOSS_PCT,
-  MIN_NOTIONAL,
-  TRADE_INTERVAL_MS,
-  INTERVAL_AFTER_STOPLOSS_MS,
-  ASSET_NAME,
-  ORDER_TIMEOUT_MS,
-  CHANNEL_TIME,
-  PRICE_STEP,
-} from "./src/config";
+import { COINS_CONFIG, type CoinConfig } from "./src/config";
 import { sleep } from "./src/utils";
 
-export async function tradeLoop() {
-  console.log("🚀 Робот запущен в Stateless-режиме.");
+// Функция теперь принимает настройки конкретной монеты
+export async function tradeLoop(config: CoinConfig) {
+  const {
+    SYMBOL,
+    QUANTITY,
+    PRICE_STEP,
+    STOP_LOSS_PCT,
+    MIN_NOTIONAL,
+    ASSET_NAME,
+    CHANNEL_TIME,
+    INTERVAL_AFTER_STOPLOSS_MS,
+    ORDER_TIMEOUT_MS,
+    TRADE_INTERVAL_MS,
+  } = config;
+
+  console.log(`🚀 Робот запущен для пары ${SYMBOL} в Stateless-режиме.`);
 
   while (true) {
     try {
       // ==========================================
-      // 1. СБОР СВЕЖИХ ДАННЫХ С СЕРВЕРА (Каждый тик заново)
+      // 1. СБОР СВЕЖИХ ДАННЫХ С СЕРВЕРА
       // ==========================================
-      const channel = await getChannelBounds(SYMBOL, PRICE_STEP, CHANNEL_TIME); // Канал за последние 5 минут
-      const { currentBuyOrder, currentSellOrder } = await getOpenOrders(SYMBOL); // Получаем все активные ордера по паре
+      const channel = await getChannelBounds(SYMBOL, PRICE_STEP, CHANNEL_TIME);
+      const { currentBuyOrder, currentSellOrder } = await getOpenOrders(SYMBOL);
       const { coinBalance, usdtBalance } = await getAssetBalance(ASSET_NAME);
 
       if (!channel || coinBalance === null || usdtBalance === null) {
         console.log(
-          "⚠️ Не удалось собрать все данные с биржи. Пропускаем тик...",
+          `⚠️ [${SYMBOL}] Не удалось собрать все данные с биржи. Пропускаем тик...`,
         );
         await sleep(TRADE_INTERVAL_MS);
         continue;
@@ -49,9 +52,9 @@ export async function tradeLoop() {
         const buyAgeMinutes = Date.now() - currentBuyOrder.time;
         if (buyAgeMinutes >= ORDER_TIMEOUT_MS) {
           console.log(
-            "⏰ Ордер BUY висит больше 3 минут без полного налива. Отменяем.",
+            `⏰ [${SYMBOL}] Ордер BUY висит больше 3 минут без полного налива. Отменяем.`,
           );
-          await cancelOrder(currentBuyOrder.orderId);
+          await cancelOrder(currentBuyOrder.orderId, SYMBOL);
           continue;
         }
       }
@@ -59,9 +62,9 @@ export async function tradeLoop() {
         const tpAgeMinutes = Date.now() - currentSellOrder.time;
         if (tpAgeMinutes >= ORDER_TIMEOUT_MS) {
           console.log(
-            "⏰ ТР висит больше 3 минут. Отменяем для перестановки по новому каналу.",
+            `⏰ [${SYMBOL}] ТР висит больше 3 минут. Отменяем для перестановки по новому каналу.`,
           );
-          await cancelOrder(currentSellOrder.orderId);
+          await cancelOrder(currentSellOrder.orderId, SYMBOL);
           continue;
         }
       }
@@ -69,11 +72,12 @@ export async function tradeLoop() {
         const stopPrice = currentSellOrder.price * (1 - STOP_LOSS_PCT / 100);
         if (currentPrice <= stopPrice) {
           console.log(
-            `🚨 СТОП-ЛОСС! Цена ${currentPrice} <= ${stopPrice}. Экстренно выходим по рынку.`,
+            `🚨 [${SYMBOL}] СТОП-ЛОСС! Цена ${currentPrice} <= ${stopPrice}. Экстренно выходим по рынку.`,
           );
-          if (currentSellOrder) await cancelOrder(currentSellOrder.orderId);
-          await placeMarketSell(coinBalance);
-          console.log("😴 Пауза  после стоп-лосса.");
+          if (currentSellOrder)
+            await cancelOrder(currentSellOrder.orderId, SYMBOL);
+          await placeMarketSell(coinBalance, SYMBOL);
+          console.log(`😴 [${SYMBOL}] Пауза после стоп-лосса.`);
           await sleep(INTERVAL_AFTER_STOPLOSS_MS);
           continue;
         }
@@ -87,10 +91,12 @@ export async function tradeLoop() {
           "SELL",
           channel.targetSellPrice,
           coinBalance,
+          SYMBOL,
+          PRICE_STEP,
         );
         if (sellOrder?.orderId) {
           console.log(
-            `💰 Выставлен Тейк-Профит на ${coinBalance} ${ASSET_NAME} по цене ${channel.targetSellPrice}`,
+            `💰 [${SYMBOL}] Выставлен Тейк-Профит на ${coinBalance} ${ASSET_NAME} по цене ${channel.targetSellPrice}`,
           );
         }
       }
@@ -108,24 +114,38 @@ export async function tradeLoop() {
             "BUY",
             channel.targetBuyPrice,
             QUANTITY,
+            SYMBOL,
+            PRICE_STEP,
           );
           if (order?.orderId) {
             console.log(
-              `🛒 Выставили новый ордер BUY по цене ${channel.targetBuyPrice}`,
+              `🛒 [${SYMBOL}] Выставили новый ордер BUY по цене ${channel.targetBuyPrice}`,
             );
           }
         } else {
           console.log(
-            "❌ Недостаточно USDT для выставления ордера на покупку.",
+            `❌ [${SYMBOL}] Недостаточно USDT для выставления ордера на покупку.`,
           );
         }
       }
     } catch (error) {
-      console.error("💥 Критическая ошибка в цикле тика:", error);
+      console.error(`💥 Критическая ошибка в цикле тика для ${SYMBOL}:`, error);
     }
 
     await sleep(TRADE_INTERVAL_MS);
   }
 }
 
-tradeLoop();
+// Главная функция для одновременного запуска всех монет
+async function startMultiBot() {
+  console.log(`Бот инициализирует торговлю для ${COINS_CONFIG.length} пар...`);
+
+  // Запуск независимого цикла для каждой монеты параллельно
+  const tradingPromises = COINS_CONFIG.map((coinConfig) =>
+    tradeLoop(coinConfig),
+  );
+
+  await Promise.all(tradingPromises);
+}
+
+startMultiBot();

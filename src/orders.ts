@@ -1,17 +1,18 @@
 import { client } from "./client";
-import { SYMBOL, PRICE_STEP } from "./config";
 
 export async function placeLimitOrder(
   side: "BUY" | "SELL",
   price: number,
   quantity: number,
+  symbol: string,
+  priceStep: number,
 ) {
-  const decimals = PRICE_STEP.toString().split(".")[1]?.length || 0;
+  const decimals = priceStep.toString().split(".")[1]?.length || 0;
   const formattedPrice = price.toFixed(decimals);
 
   console.log(`[Ордер] ${side} ${formattedPrice} ${quantity}`);
   try {
-    const order = await client.newOrder(SYMBOL, side, "LIMIT", {
+    const order = await client.newOrder(symbol, side, "LIMIT", {
       quantity: quantity.toString(),
       price: formattedPrice,
       timeInForce: "GTC",
@@ -23,16 +24,16 @@ export async function placeLimitOrder(
   }
 }
 
-export async function placeMarketSell(quantity: number) {
+export async function placeMarketSell(quantity: number, symbol: string) {
   console.log(`[ОРДЕР] MARKET SELL ${quantity}`);
-  return client.newOrder(SYMBOL, "SELL", "MARKET", {
+  return client.newOrder(symbol, "SELL", "MARKET", {
     quantity: quantity.toString(),
   });
 }
 
-export async function cancelOrder(orderId: number) {
+export async function cancelOrder(orderId: number, symbol: string) {
   try {
-    await client.cancelOrder(SYMBOL, { orderId });
+    await client.cancelOrder(symbol, { orderId });
     console.log(`Ордер ${orderId} отменен`);
   } catch (e: any) {
     console.error(`Не удалось отменить ордер ${orderId}:`, e.message || e);
@@ -41,7 +42,7 @@ export async function cancelOrder(orderId: number) {
 
 export async function getOpenOrders(symbol: string) {
   try {
-    const openOrders = await client.openOrders(SYMBOL);
+    const openOrders = await client.openOrders(symbol);
     // Ищем ордера на бирже по факту их наличия
     const currentBuyOrder = openOrders.find(
       (o: { side: string }) => o.side === "BUY",

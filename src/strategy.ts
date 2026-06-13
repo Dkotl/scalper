@@ -1,5 +1,4 @@
 import { client } from "./client";
-import { SYMBOL, PRICE_STEP } from "./config";
 
 export interface ChannelData {
   lowerBound: number;
