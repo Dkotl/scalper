@@ -51,11 +51,11 @@ export async function getChannelBounds(
     let targetBuyPrice = minPrice + priceStep;
     const midPrice = (minPrice + maxPrice) / 2;
     let targetSellPrice = midPrice + priceStep;
-    if (delta > priceStep * 5) {
+    //if (delta > priceStep * 5) {
+      //targetSellPrice = midPrice + priceStep * 2;
+   // }
+    if (delta > priceStep * 12) {
       targetSellPrice = midPrice + priceStep * 2;
-    }
-    if (delta > priceStep * 10) {
-      targetSellPrice = midPrice + priceStep * 3;
     }
 
     if (targetBuyPrice >= bestAsk) targetBuyPrice = bestBid;
