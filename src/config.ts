@@ -33,7 +33,7 @@ export const COINS_CONFIG: CoinConfig[] = [
     USDT_QUANTITY: 50,
     QTY_STEP: 0.01,
     PRICE_STEP: 0.0001,
-    STOP_LOSS_PCT: 0.5,
+    STOP_LOSS_PCT: 2,
     MIN_NOTIONAL: 1.1,
     ASSET_NAME: "PLB",
     CHANNEL_TIME: 30 * 1000,
@@ -41,7 +41,6 @@ export const COINS_CONFIG: CoinConfig[] = [
     INTERVAL_AFTER_STOPLOSS_MS: 10 * 60 * 1000,
     ORDER_TIMEOUT_MS: 2 * 60 * 1000,
   },
-
 ];
 
 //corn nibi

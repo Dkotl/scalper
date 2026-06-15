@@ -1,5 +1,5 @@
 import type { CoinConfig } from "./config";
-import { getChannelBounds } from "./get_chanel_bounds";
+import { analyzeMarket } from "./analize_market";
 import {
   cancelOrder,
   getOpenOrders,
@@ -18,7 +18,6 @@ export async function tradeLoop(config: CoinConfig) {
     STOP_LOSS_PCT,
     MIN_NOTIONAL,
     ASSET_NAME,
-    CHANNEL_TIME,
     INTERVAL_AFTER_STOPLOSS_MS,
     ORDER_TIMEOUT_MS,
     TRADE_INTERVAL_MS,
@@ -31,23 +30,41 @@ export async function tradeLoop(config: CoinConfig) {
       // ==========================================
       // 1. СБОР СВЕЖИХ ДАННЫХ С СЕРВЕРА
       // ==========================================
-      const channel = await getChannelBounds(SYMBOL, PRICE_STEP, CHANNEL_TIME);
+      const market = await analyzeMarket(SYMBOL, 15);
+
+      if (!market) continue;
+
       const { currentBuyOrder, currentSellOrder } = await getOpenOrders(SYMBOL);
       const { coinBalance, usdtBalance } = await getAssetBalance(ASSET_NAME);
 
-      if (!channel || coinBalance === null || usdtBalance === null) {
+      if (coinBalance === null || usdtBalance === null) {
         console.log(
           `⚠️ [${SYMBOL}] Не удалось собрать все данные с биржи. Пропускаем тик...`,
         );
         await sleep(TRADE_INTERVAL_MS);
         continue;
       }
-      const currentPrice = channel.bestBid;
+      const currentPrice = market.currentPrice;
       const coinValueInUsdt = coinBalance * currentPrice;
 
       // ==========================================
       // 2. АНАЛИЗ СОСТОЯНИЯ И ПРИНЯТИЕ РЕШЕНИЙ
       // ==========================================
+      if (currentSellOrder.length > 0) {
+        const stopPrice = currentSellOrder[0].price * (1 - STOP_LOSS_PCT / 100);
+        if (currentPrice <= stopPrice) {
+          console.log(
+            `🚨 [${SYMBOL}] СТОП-ЛОСС! Цена ${currentPrice} <= ${stopPrice}. Экстренно выходим по рынку.`,
+          );
+          for (const order of currentBuyOrder) {
+            await cancelOrder(order.orderId, SYMBOL);
+          }
+          await placeMarketSell(coinBalance, SYMBOL);
+          console.log(`😴 [${SYMBOL}] Пауза после стоп-лосса.`);
+          await sleep(INTERVAL_AFTER_STOPLOSS_MS);
+          continue;
+        }
+      }
       if (currentBuyOrder.length > 0) {
         for (const order of currentBuyOrder) {
           const buyAgeMinutes = Date.now() - order.time;
@@ -71,51 +88,37 @@ export async function tradeLoop(config: CoinConfig) {
           }
         }
       }
-      if (currentSellOrder.length > 0) {
-        const stopPrice = currentSellOrder[0].price * (1 - STOP_LOSS_PCT / 100);
-        if (currentPrice <= stopPrice) {
-          console.log(
-            `🚨 [${SYMBOL}] СТОП-ЛОСС! Цена ${currentPrice} <= ${stopPrice}. Экстренно выходим по рынку.`,
-          );
-          for (const order of currentBuyOrder) {
-            await cancelOrder(order.orderId, SYMBOL);
-          }
-          await placeMarketSell(coinBalance, SYMBOL);
-          console.log(`😴 [${SYMBOL}] Пауза после стоп-лосса.`);
-          await sleep(INTERVAL_AFTER_STOPLOSS_MS);
-          continue;
-        }
-      }
-      if (coinValueInUsdt >= MIN_NOTIONAL ) { 
+
+      if (coinValueInUsdt >= MIN_NOTIONAL) {
         const sellOrder = await placeLimitOrder(
           "SELL",
-          channel.targetSellPrice,
+          market.minPrice + market.range * 0.7,
           coinBalance.toString(),
           SYMBOL,
           PRICE_STEP,
         );
         if (sellOrder?.orderId) {
           console.log(
-            `💰 [${SYMBOL}] Выставлен Тейк-Профит на ${coinBalance} ${ASSET_NAME} по цене ${channel.targetSellPrice}`,
+            `💰 [${SYMBOL}] Выставлен Тейк-Профит на ${coinBalance} ${ASSET_NAME} по цене ${market.minPrice + market.range * 0.7}`,
           );
         }
       }
 
-      if ( usdtBalance >= MIN_NOTIONAL) {
+      if (usdtBalance >= MIN_NOTIONAL && market.isSideways) {
         const usdt_to_trade = Math.min(usdtBalance, USDT_QUANTITY);
-        const coinQty = (usdt_to_trade * 0.99) / channel.targetBuyPrice;
+        const coinQty = (usdt_to_trade * 0.99) / market.currentPrice;
         const decimals_qty = QTY_STEP.toString().split(".")[1]?.length || 0;
         const formatedQty = coinQty.toFixed(decimals_qty);
         const order = await placeLimitOrder(
           "BUY",
-          channel.targetBuyPrice,
+          market.minPrice + market.range * 0.2,
           formatedQty,
           SYMBOL,
           PRICE_STEP,
         );
         if (order?.orderId) {
           console.log(
-            `🛒 [${SYMBOL}] Выставили новый ордер BUY по цене ${channel.targetBuyPrice}`,
+            `🛒 [${SYMBOL}] Выставили новый ордер BUY по цене ${market.minPrice + market.range * 0.2}`,
           );
         }
       }
