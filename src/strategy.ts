@@ -90,16 +90,21 @@ export async function tradeLoop(config: CoinConfig) {
       }
 
       if (coinValueInUsdt >= MIN_NOTIONAL) {
+        let targetSellPrice = market.localMinPrice + market.localRange * 0.7;
+        const minAllowedSellPrice = market.currentPrice + PRICE_STEP;
+        if (targetSellPrice < minAllowedSellPrice) {
+          targetSellPrice = minAllowedSellPrice;
+        }
         const sellOrder = await placeLimitOrder(
           "SELL",
-          market.minPrice + market.range * 0.7,
+          targetSellPrice,
           coinBalance.toString(),
           SYMBOL,
           PRICE_STEP,
         );
         if (sellOrder?.orderId) {
           console.log(
-            `💰 [${SYMBOL}] Выставлен Тейк-Профит на ${coinBalance} ${ASSET_NAME} по цене ${market.minPrice + market.range * 0.7}`,
+            `💰 [${SYMBOL}] Выставлен Тейк-Профит на ${coinBalance} ${ASSET_NAME} по цене ${targetSellPrice}`,
           );
         }
       }
@@ -109,16 +114,21 @@ export async function tradeLoop(config: CoinConfig) {
         const coinQty = (usdt_to_trade * 0.99) / market.currentPrice;
         const decimals_qty = QTY_STEP.toString().split(".")[1]?.length || 0;
         const formatedQty = coinQty.toFixed(decimals_qty);
+        let targetBuyPrice = market.localMinPrice + market.localRange * 0.1;
+        const maxAllowedBuyPrice = market.currentPrice - PRICE_STEP;
+        if (targetBuyPrice > maxAllowedBuyPrice) {
+          targetBuyPrice = maxAllowedBuyPrice;
+        }
         const order = await placeLimitOrder(
           "BUY",
-          market.minPrice + market.range * 0.2,
+          targetBuyPrice,
           formatedQty,
           SYMBOL,
           PRICE_STEP,
         );
         if (order?.orderId) {
           console.log(
-            `🛒 [${SYMBOL}] Выставили новый ордер BUY по цене ${market.minPrice + market.range * 0.2}`,
+            `🛒 [${SYMBOL}] Выставили новый ордер BUY по цене ${targetBuyPrice}`,
           );
         }
       }
