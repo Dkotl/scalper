@@ -19,7 +19,10 @@ export interface MarketRegime {
 
 export async function analyzeMarket(
   symbol: string,
-  lookbackMinutes: number = 5,
+  lookbackMinutes: number,
+  minRangePct: number,
+  maxRangePct: number,
+  maxTrendFactor: number,
 ): Promise<MarketRegime | null> {
   try {
     // 1. Берём свечи 1m за последние 15 минут
@@ -52,8 +55,8 @@ export async function analyzeMarket(
 
     // 4. Логика цен входа/выхода на основе ПОСЛЕДНЕЙ минуты
     const localHigh = Number(lastCandle[2]); // High последней минуты
-    const localLow = Number(lastCandle[3]);  // Low последней минуты
-    
+    const localLow = Number(lastCandle[3]); // Low последней минуты
+
     // Защита на случай, если минутный диапазон равен нулю
     const localMinPrice = !isNaN(localLow) ? localLow : currentPrice;
     const localMaxPrice = !isNaN(localHigh) ? localHigh : currentPrice;
@@ -65,7 +68,10 @@ export async function analyzeMarket(
     const trendFactor = rangePct > 0 ? driftPct / rangePct : 0;
 
     // Режим рынка (сигнал) по-прежнему зависит от 15-минутной истории
-    const isSideways = rangePct > 0.05 && rangePct < 1 && trendFactor < 0.4;
+    const isSideways =
+      rangePct > minRangePct &&
+      rangePct < maxRangePct &&
+      trendFactor < maxTrendFactor;
 
     return {
       anchor,
@@ -77,7 +83,7 @@ export async function analyzeMarket(
       driftPct,
       trendFactor,
       isSideways,
-      
+
       // Возвращаем локальные уровни
       localMinPrice,
       localMaxPrice,

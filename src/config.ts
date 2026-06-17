@@ -19,11 +19,18 @@ export interface CoinConfig {
   QTY_STEP: number;
   PRICE_STEP: number;
   STOP_LOSS_PCT: number;
+  SELL_RANGE: number;
+  BUY_RANGE: number;
   MIN_NOTIONAL: number;
   ASSET_NAME: string;
   TRADE_INTERVAL_MS: number;
   INTERVAL_AFTER_STOPLOSS_MS: number;
   ORDER_TIMEOUT_MS: number;
+
+  ANALIZE_INTERVAL_MIN: number; // Необязательный параметр, если нужно изменить интервал анализа
+  MIN_RANGE_PCT: number; // Необязательный параметр для минимального диапазона в процентах
+  MAX_RANGE_PCT: number; // Необязательный параметр для максимального диапазона в процентах
+  MAX_TREND_FACTOR: number; // Необязательный параметр для максимального трендового фактора
 }
 
 export const COINS_CONFIG: CoinConfig[] = [
@@ -32,12 +39,19 @@ export const COINS_CONFIG: CoinConfig[] = [
   //  USDT_QUANTITY: 20,
   //  QTY_STEP: 0.01,
   // PRICE_STEP: 0.0001,
-  // STOP_LOSS_PCT: 1,
+  // STOP_LOSS_PCT: 2,
+  // SELL_RANGE: 0.7,
+  //   BUY_RANGE: 0.1,
   //   MIN_NOTIONAL: 1.1,
   // ASSET_NAME: "PLB",
   //  TRADE_INTERVAL_MS: 3000,
   // INTERVAL_AFTER_STOPLOSS_MS: 2* 60 * 60 * 1000,
   //   ORDER_TIMEOUT_MS: 5 * 60 * 1000,
+
+  // ANALIZE_INTERVAL_MIN: 15,
+  // MIN_RANGE_PCT: 0.05,
+  // MAX_RANGE_PCT: 1.0,
+  // MAX_TREND_FACTOR: 0.4,
   //},
   {
     SYMBOL: "CTPUSDT",
@@ -45,11 +59,18 @@ export const COINS_CONFIG: CoinConfig[] = [
     QTY_STEP: 0.01,
     PRICE_STEP: 0.0000001,
     STOP_LOSS_PCT: 2,
+    SELL_RANGE: 0.9,
+    BUY_RANGE: 0.1,
     MIN_NOTIONAL: 1.1,
     ASSET_NAME: "CTP",
     TRADE_INTERVAL_MS: 3000,
     INTERVAL_AFTER_STOPLOSS_MS: 2 * 60 * 60 * 1000,
     ORDER_TIMEOUT_MS: 5 * 60 * 1000,
+
+    ANALIZE_INTERVAL_MIN: 15,
+    MIN_RANGE_PCT: 0.05,
+    MAX_RANGE_PCT: 1.0,
+    MAX_TREND_FACTOR: 0.4,
   },
 ];
 

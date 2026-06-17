@@ -21,6 +21,12 @@ export async function tradeLoop(config: CoinConfig) {
     INTERVAL_AFTER_STOPLOSS_MS,
     ORDER_TIMEOUT_MS,
     TRADE_INTERVAL_MS,
+    ANALIZE_INTERVAL_MIN,
+    MAX_RANGE_PCT,
+    MAX_TREND_FACTOR,
+    MIN_RANGE_PCT,
+    BUY_RANGE,
+    SELL_RANGE,
   } = config;
 
   console.log(`🚀 Робот запущен для пары ${SYMBOL} в Stateless-режиме.`);
@@ -30,7 +36,13 @@ export async function tradeLoop(config: CoinConfig) {
       // ==========================================
       // 1. СБОР СВЕЖИХ ДАННЫХ С СЕРВЕРА
       // ==========================================
-      const market = await analyzeMarket(SYMBOL, 15);
+      const market = await analyzeMarket(
+        SYMBOL,
+        ANALIZE_INTERVAL_MIN,
+        MIN_RANGE_PCT,
+        MAX_RANGE_PCT,
+        MAX_TREND_FACTOR,
+      );
 
       if (!market) continue;
 
@@ -90,7 +102,7 @@ export async function tradeLoop(config: CoinConfig) {
       }
 
       if (coinValueInUsdt >= MIN_NOTIONAL) {
-        let targetSellPrice = market.localMinPrice + market.localRange * 0.7;
+        let targetSellPrice = market.localMinPrice + market.localRange * SELL_RANGE;
         const minAllowedSellPrice = market.currentPrice + PRICE_STEP;
         if (targetSellPrice < minAllowedSellPrice) {
           targetSellPrice = minAllowedSellPrice;
@@ -114,7 +126,7 @@ export async function tradeLoop(config: CoinConfig) {
         const coinQty = (usdt_to_trade * 0.99) / market.currentPrice;
         const decimals_qty = QTY_STEP.toString().split(".")[1]?.length || 0;
         const formatedQty = coinQty.toFixed(decimals_qty);
-        let targetBuyPrice = market.localMinPrice + market.localRange * 0.1;
+        let targetBuyPrice = market.localMinPrice + market.localRange * BUY_RANGE;
         const maxAllowedBuyPrice = market.currentPrice - PRICE_STEP;
         if (targetBuyPrice > maxAllowedBuyPrice) {
           targetBuyPrice = maxAllowedBuyPrice;
