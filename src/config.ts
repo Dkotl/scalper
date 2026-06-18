@@ -59,7 +59,7 @@ export const COINS_CONFIG: CoinConfig[] = [
     QTY_STEP: 0.01,
     PRICE_STEP: 0.0001,
     STOP_LOSS_PCT: 2,
-    SELL_RANGE: 0.7,
+    SELL_RANGE: 0.6,
     BUY_RANGE: 0.1,
     MIN_NOTIONAL: 1.1,
     ASSET_NAME: "PLB",
