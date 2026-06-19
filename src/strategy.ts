@@ -65,11 +65,16 @@ export async function tradeLoop(config: CoinConfig) {
           sum + Number(order.origQty) * Number(order.price),
         0,
       );
+      const usdtToSellOrders = currentSellOrder.reduce(
+        (sum: number, order: { origQty: string; price: string }) =>
+          sum + Number(order.origQty) * Number(order.price),
+        0,
+      );
       // ==========================================
       // 2. АНАЛИЗ СОСТОЯНИЯ И ПРИНЯТИЕ РЕШЕНИЙ
       // ==========================================
       if (currentSellOrder.length > 0) {
-        const stopPrice = market.anchor * (1 - STOP_LOSS_PCT / 100);
+        const stopPrice = currentSellOrder.price * (1 - STOP_LOSS_PCT / 100);
         if (currentPrice <= stopPrice) {
           console.log(
             `🚨 [${SYMBOL}] СТОП-ЛОСС! Цена ${currentPrice} <= ${stopPrice}. Экстренно выходим по рынку.`,
@@ -130,7 +135,10 @@ export async function tradeLoop(config: CoinConfig) {
 
       if (usdtBalance >= MIN_NOTIONAL && market.isSideways) {
         const usdt_to_trade = Math.min(usdtBalance, USDT_QUANTITY);
-        if (usdtToBuyOrders + usdt_to_trade > USDT_QUANTITY) {
+        if (
+          usdtToBuyOrders + usdtToSellOrders + usdt_to_trade >
+          USDT_QUANTITY
+        ) {
           console.log(
             `⚠️ [${SYMBOL}] Превышен лимит на открытые ордера BUY. Пропускаем тик...`,
           );

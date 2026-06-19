@@ -8,7 +8,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "bot": "tsx bot.ts ",
     "build": "esbuild bot.ts --bundle --platform=node --format=esm --packages=external --outdir=dist",
-    "start": "node dist/bot.js"
+    "start": "node dist/bot.js",
+    "stat": "npx tsx src/balance_pnl.ts > stat.txt 2>&1"
   },
   "repository": {
     "type": "git",
@@ -26,6 +27,7 @@
     "ccxt": "^4.5.56",
     "cli-table3": "^0.6.5",
     "date-fns": "^4.4.0",
+    "dayjs": "^1.11.21",
     "dotenv": "^17.4.2",
     "mexc-api-sdk": "^1.0.3"
   },
