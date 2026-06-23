@@ -57,7 +57,7 @@ export const COINS_CONFIG: CoinConfig[] = [
   },
     {
     SYMBOL: "PLBUSDT",
-    USDT_QUANTITY: 2,
+    USDT_QUANTITY: 4,
     QTY_STEP: 0.01,
     PRICE_STEP: 0.0001,
     STOP_LOSS_PCT: 2,
@@ -77,7 +77,7 @@ export const COINS_CONFIG: CoinConfig[] = [
   },
   {
     SYMBOL: "CORNUSDT",
-    USDT_QUANTITY: 7,
+    USDT_QUANTITY: 6,
     QTY_STEP: 0.01,
     PRICE_STEP: 0.00001,
     STOP_LOSS_PCT: 2,
@@ -98,7 +98,7 @@ export const COINS_CONFIG: CoinConfig[] = [
 
   {
     SYMBOL: "NXTUSDT",
-    USDT_QUANTITY: 2,
+    USDT_QUANTITY: 4,
     QTY_STEP: 0.01,
     PRICE_STEP: 0.00001,
     STOP_LOSS_PCT: 3,
