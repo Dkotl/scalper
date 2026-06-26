@@ -123,7 +123,7 @@ export const COINS_CONFIG: CoinConfig[] = [
     PRICE_STEP: 0.000001,
     STOP_LOSS_PCT: 3,
     SELL_RANGE: 0.8,
-    BUY_RANGE: 0.2,
+    BUY_RANGE: 0.3,
     MIN_NOTIONAL: 1.1,
     ASSET_NAME: "SLIMEX",
     TRADE_INTERVAL_MS: 3000,
