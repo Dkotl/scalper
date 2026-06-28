@@ -133,14 +133,10 @@ export async function tradeLoop(config: CoinConfig) {
       }
 
       if (usdtBalance >= MIN_NOTIONAL && market.isSideways) {
-        const usdt_to_trade = Math.min(usdtBalance, USDT_QUANTITY);
+        const usdt_to_trade = Math.min(usdtBalance, USDT_QUANTITY) -  usdtToBuyOrders - usdtToSellOrders;
         if (
-        usdt_to_trade-  usdtToBuyOrders - usdtToSellOrders  >
-          USDT_QUANTITY
+        usdt_to_trade <MIN_NOTIONAL
         ) {
-          console.log(
-            `⚠️ [${SYMBOL}] Превышен лимит на открытые ордера BUY. Пропускаем тик...`,
-          );
           await sleep(TRADE_INTERVAL_MS);
           continue;
         }

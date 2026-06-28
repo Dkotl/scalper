@@ -45,46 +45,36 @@ async function getPriceMap(symbols: string[]) {
 }
 
 async function getTradesLast12Hours(symbol: string): Promise<any[]> {
-  let allTrades: any[] = [];
-  let startTime = Date.now() - 12 * 60 * 60 * 1000;
+    const allTrades: any[] = [];
 
-  while (true) {
-    try {
-      const options: any = { limit: 1000, startTime: startTime };
-      const trades = await client.accountTradeList(symbol, options);
+    const endTime = Date.now();
+    const startTime = endTime - 12 * 60 * 60 * 1000;
 
-      if (!Array.isArray(trades) || trades.length === 0) {
-        break;
-      }
+    // Размер окна — 1 час
+    const interval = 60 * 60 * 1000;
 
-      if (
-        allTrades.length > 0 &&
-        trades[0].id === allTrades[allTrades.length - 1].id
-      ) {
-        trades.shift();
-      }
+    for (let currentStart = startTime; currentStart < endTime; currentStart += interval) {
+        const currentEnd = Math.min(currentStart + interval - 1, endTime);
 
-      if (trades.length === 0) break;
+        try {
+            const trades = await client.accountTradeList(symbol, {
+                startTime: currentStart,
+                endTime: currentEnd,
+                limit: 1000,
+            });
 
-      allTrades.push(...trades);
-
-      const lastTradeTime = Number(trades[trades.length - 1].time);
-      if (isNaN(lastTradeTime) || lastTradeTime === startTime) {
-        break;
-      }
-
-      startTime = lastTradeTime;
-
-      if (trades.length < 1000) {
-        break;
-      }
-    } catch (error) {
-      console.error(`Ошибка загрузки сделок для ${symbol}:`, error);
-      break;
+            if (Array.isArray(trades) && trades.length > 0) {
+                allTrades.push(...trades);
+            }
+        } catch (err) {
+            console.error(
+                `Ошибка загрузки сделок ${symbol} ${new Date(currentStart).toISOString()}:`,
+                err
+            );
+        }
     }
-  }
 
-  return allTrades;
+    return allTrades;
 }
 
 async function calculateDailyPnl() {
