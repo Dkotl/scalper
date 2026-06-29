@@ -37,12 +37,12 @@ export interface CoinConfig {
 export const COINS_CONFIG: CoinConfig[] = [
     {
     SYMBOL: "SLIMEXUSDT",
-    USDT_QUANTITY: 100,
+    USDT_QUANTITY: 20,
     QTY_STEP: 0.01,
     PRICE_STEP: 0.000001,
     STOP_LOSS_PCT: 3,
-    SELL_RANGE: 0.8,
-    BUY_RANGE: 0.3,
+    SELL_RANGE: 0.55,
+    BUY_RANGE: 0.45,
     MIN_NOTIONAL: 1.1,
     ASSET_NAME: "SLIMEX",
     TRADE_INTERVAL_MS: 3000,
@@ -77,7 +77,7 @@ export const COINS_CONFIG: CoinConfig[] = [
   // },
     {
     SYMBOL: "PLBUSDT",
-    USDT_QUANTITY: 5,
+    USDT_QUANTITY: 20,
     QTY_STEP: 0.01,
     PRICE_STEP: 0.0001,
     STOP_LOSS_PCT: 2,
@@ -97,7 +97,7 @@ export const COINS_CONFIG: CoinConfig[] = [
   },
   {
     SYMBOL: "CORNUSDT",
-    USDT_QUANTITY: 5,
+    USDT_QUANTITY: 20,
     QTY_STEP: 0.01,
     PRICE_STEP: 0.00001,
     STOP_LOSS_PCT: 2,
@@ -117,7 +117,7 @@ export const COINS_CONFIG: CoinConfig[] = [
   },
   {
     SYMBOL: "NXTUSDT",
-    USDT_QUANTITY: 5,
+    USDT_QUANTITY: 20,
     QTY_STEP: 0.01,
     PRICE_STEP: 0.00001,
     STOP_LOSS_PCT: 3,
@@ -137,7 +137,7 @@ export const COINS_CONFIG: CoinConfig[] = [
   },
     {
     SYMBOL: "FORUUSDT",
-    USDT_QUANTITY: 5,
+    USDT_QUANTITY: 20,
     QTY_STEP: 0.01,
     PRICE_STEP: 0.00001,
     STOP_LOSS_PCT: 3,
@@ -154,7 +154,48 @@ export const COINS_CONFIG: CoinConfig[] = [
     MIN_RANGE_PCT: 0,
     MAX_RANGE_PCT: 5.0,
     MAX_TREND_FACTOR: 0.7,
-  }
+  },
+      {
+    SYMBOL: "AIXDROPUSDT",
+    USDT_QUANTITY: 20,
+    QTY_STEP: 0.01,
+    PRICE_STEP: 0.00000001,
+    STOP_LOSS_PCT: 5,
+    SELL_RANGE: 0.6,
+    BUY_RANGE: 0.4,
+    MIN_NOTIONAL: 1.1,
+    ASSET_NAME: "AIXDROP",
+    TRADE_INTERVAL_MS: 3000,
+    INTERVAL_AFTER_STOPLOSS_MS: 2 * 60 * 60 * 1000,
+    ORDER_TIMEOUT_MS: 3 * 60 * 1000,
+
+    ANALIZE_INTERVAL_MIN: 15,
+    LOOCAL_LOOKBACK: 15,
+    MIN_RANGE_PCT: 0,
+    MAX_RANGE_PCT: 7.0,
+    MAX_TREND_FACTOR: 0.7,
+  },
+  //       {
+  //   SYMBOL: "KAZARUSDT",
+  //   USDT_QUANTITY: 20,
+  //   QTY_STEP: 0.01,
+  //   PRICE_STEP: 0.00001,
+  //   STOP_LOSS_PCT: 5,
+  //   SELL_RANGE: 0.6,
+  //   BUY_RANGE: 0.4,
+  //   MIN_NOTIONAL: 1.1,
+  //   ASSET_NAME: "KAZAR",
+  //   TRADE_INTERVAL_MS: 3000,
+  //   INTERVAL_AFTER_STOPLOSS_MS: 2 * 60 * 60 * 1000,
+  //   ORDER_TIMEOUT_MS: 3 * 60 * 1000,
+
+  //   ANALIZE_INTERVAL_MIN: 15,
+  //   LOOCAL_LOOKBACK: 15,
+  //   MIN_RANGE_PCT: 0,
+  //   MAX_RANGE_PCT: 7.0,
+  //   MAX_TREND_FACTOR: 0.7,
+  // }
+
 
 
 ];
